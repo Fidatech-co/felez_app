@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -30,6 +31,16 @@ class _FelezyabanAppState extends State<FelezyabanApp> {
           iconTheme: IconThemeData(size: 30),
         ),
       ),
+      locale: const Locale('fa', 'IR'),
+      supportedLocales: const [
+        Locale('fa', 'IR'),
+        Locale('en'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       builder: (context, child) => DefaultTextStyle(
         style: DefaultTextStyle.of(context).style,
         textAlign: TextAlign.justify,
@@ -432,10 +443,20 @@ class FormsPage extends StatefulWidget {
 
 class _FormsPageState extends State<FormsPage> {
   bool _showAll = false;
-  late final List<_NewFormItem> _newFormItems = List.generate(
-    10,
-    (index) => _NewFormItem(title: 'فرم ${index + 1}', order: index),
-  );
+  late final List<_NewFormItem> _newFormItems = [
+    _NewFormItem(
+      title: 'فرم ایجاد حفاری',
+      order: 0,
+      builder: (_) => const DrillingFormPage(),
+    ),
+    ...List.generate(
+      9,
+      (index) => _NewFormItem(
+        title: 'فرم ${index + 2}',
+        order: index + 1,
+      ),
+    ),
+  ];
 
   List<FormEntry> get _visibleForms =>
       _showAll ? widget.forms : widget.forms.take(3).toList();
@@ -505,13 +526,21 @@ class _FormsPageState extends State<FormsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _toPersianDigits('${item.title} به زودی فعال می‌شود.'),
+                if (item.builder != null) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: item.builder!,
                     ),
-                  ),
-                );
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _toPersianDigits('${item.title} به زودی فعال می‌شود.'),
+                      ),
+                    ),
+                  );
+                }
               },
               child: Row(
                 children: [
@@ -709,11 +738,996 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 class _NewFormItem {
-  _NewFormItem({required this.title, required this.order});
+  _NewFormItem({required this.title, required this.order, this.builder});
 
   final String title;
   final int order;
+  final WidgetBuilder? builder;
   bool isFavorite = false;
+}
+
+class DrillingFormPage extends StatefulWidget {
+  const DrillingFormPage({super.key});
+
+  @override
+  State<DrillingFormPage> createState() => _DrillingFormPageState();
+}
+
+class _DrillingFormPageState extends State<DrillingFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _drillCodeController = TextEditingController();
+  final TextEditingController _drillAngleController = TextEditingController();
+  final TextEditingController _azimuthController = TextEditingController();
+  final TextEditingController _casingLengthController = TextEditingController();
+  final TextEditingController _shiftTotalController = TextEditingController();
+  final TextEditingController _waterColorController = TextEditingController();
+  final TextEditingController _waterReturnController = TextEditingController();
+  final TextEditingController _bitSizeController = TextEditingController();
+  final TextEditingController _runLengthController = TextEditingController();
+  final TextEditingController _endToController = TextEditingController();
+  final TextEditingController _startFromController = TextEditingController();
+  final TextEditingController _runController = TextEditingController();
+
+  String? _selectedExpert;
+  String? _selectedBorehole;
+  String? _selectedDriller;
+  String? _selectedShiftLeader;
+  final Set<String> _selectedAssistants = <String>{};
+  DrillShift _selectedShift = DrillShift.day;
+  DateTime? _startDateTime;
+  DateTime? _endDateTime;
+
+  static const List<String> _experts = [
+    'محمد احمدی',
+    'علی رضایی',
+    'سارا کریمی',
+    'پیمان بهرامی',
+    'مهدی سلیمانی',
+  ];
+
+  static const List<String> _boreholeNumbers = [
+    'BH-101',
+    'BH-118',
+    'BH-203',
+    'BH-315',
+    'BH-420',
+  ];
+
+  static const List<String> _drillers = [
+    'حسین قنبری',
+    'رضا محمودی',
+    'هادی سهرابی',
+    'محسن زارعی',
+  ];
+
+  static const List<String> _shiftLeaders = [
+    'مجید نادری',
+    'مسعود تیموری',
+    'هاشم قاسمی',
+    'شفیع مومنی',
+  ];
+
+  static const List<String> _assistantCandidates = [
+    'سهیل اکبری',
+    'روح الله قائمی',
+    'علیرضا رفیعی',
+    'مهرداد موسوی',
+    'یونس شکوهی',
+    'رضوان انصاری',
+  ];
+  static const List<String> _weekdayLabels = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+
+  @override
+  void dispose() {
+    _drillCodeController.dispose();
+    _drillAngleController.dispose();
+    _azimuthController.dispose();
+    _casingLengthController.dispose();
+    _shiftTotalController.dispose();
+    _waterColorController.dispose();
+    _waterReturnController.dispose();
+    _bitSizeController.dispose();
+    _runLengthController.dispose();
+    _endToController.dispose();
+    _startFromController.dispose();
+    _runController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('فرم ایجاد حفاری'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'مشخصات اصلی',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  _selectionField(
+                    label: 'کارشناس',
+                    value: _selectedExpert,
+                    onTap: () async {
+                      final result = await _openSingleSelection(
+                        contextTitle: 'کارشناس',
+                        options: _experts,
+                        initialValue: _selectedExpert,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedExpert = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'شماره گمانه‌',
+                    value: _selectedBorehole == null
+                        ? null
+                        : _toPersianDigits(_selectedBorehole!),
+                    onTap: () async {
+                      final result = await _openSingleSelection(
+                        contextTitle: 'شماره گمانه',
+                        options: _boreholeNumbers,
+                        initialValue: _selectedBorehole,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedBorehole = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    context,
+                    _drillCodeController,
+                    'کد دستگاه حفاری',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    context,
+                    _drillAngleController,
+                    'زاویه حفاری',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(context, _azimuthController, 'آزیموت'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    context,
+                    _casingLengthController,
+                    'متراژ کیسینگ',
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'شیفت و تیم حفاری',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<DrillShift>(
+                    segments: DrillShift.values
+                        .map(
+                          (shift) => ButtonSegment<DrillShift>(
+                            value: shift,
+                            label: Text(shift.label),
+                          ),
+                        )
+                        .toList(),
+                    selected: {_selectedShift},
+                    onSelectionChanged: (selection) {
+                      if (selection.isNotEmpty) {
+                        setState(() => _selectedShift = selection.first);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'حفار',
+                    value: _selectedDriller,
+                    onTap: () async {
+                      final result = await _openSingleSelection(
+                        contextTitle: 'حفار',
+                        options: _drillers,
+                        initialValue: _selectedDriller,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedDriller = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'سرشیفت',
+                    value: _selectedShiftLeader,
+                    onTap: () async {
+                      final result = await _openSingleSelection(
+                        contextTitle: 'سرشیفت',
+                        options: _shiftLeaders,
+                        initialValue: _selectedShiftLeader,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedShiftLeader = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _multiSelectionField(
+                    label: 'پرسنل کمک حفار',
+                    values: _selectedAssistants,
+                    onTap: () async {
+                      final result = await _openMultiSelection(
+                        title: 'پرسنل کمک حفار',
+                        options: _assistantCandidates,
+                        currentValues: _selectedAssistants,
+                      );
+                      if (result != null) {
+                        setState(() {
+                          _selectedAssistants
+                            ..clear()
+                            ..addAll(result);
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    context,
+                    _shiftTotalController,
+                    'مجموع حفاری شیفت',
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'اطلاعات حفاری',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTextField(context, _waterColorController, 'رنگ آب'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    context,
+                    _waterReturnController,
+                    'درصد آب برگشتی',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(context, _bitSizeController, 'سایز سرمته'),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'زمان شروع',
+                    value: _formatDateTime(_startDateTime),
+                    onTap: () => _pickDateTime(isStart: true),
+                    placeholder: 'انتخاب زمان شروع',
+                    icon: Icons.calendar_month_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'زمان پایان',
+                    value: _formatDateTime(_endDateTime),
+                    onTap: () => _pickDateTime(isStart: false),
+                    placeholder: 'انتخاب زمان پایان',
+                    icon: Icons.calendar_month_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(context, _runLengthController, 'طول ران'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(context, _endToController, 'پایان تا'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(context, _startFromController, 'شروع از'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(context, _runController, 'ران'),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('ثبت فرم'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(
+    BuildContext context,
+    String label, {
+    Widget? suffixIcon,
+    bool alwaysFloatLabel = false,
+  }) {
+    final borderColor = Colors.black.withOpacity(0.2);
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: borderColor),
+    );
+    final focusedBorder = border.copyWith(
+      borderSide: BorderSide(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+      ),
+    );
+    return InputDecoration(
+      labelText: label,
+      border: border,
+      enabledBorder: border,
+      focusedBorder: focusedBorder,
+      suffixIcon: suffixIcon,
+      floatingLabelBehavior:
+          alwaysFloatLabel ? FloatingLabelBehavior.always : null,
+    );
+  }
+
+  Widget _buildNumberField(
+    BuildContext context,
+    TextEditingController controller,
+    String label,
+  ) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: _inputDecoration(context, label),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'وارد کردن $label الزامی است';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildTextField(
+    BuildContext context,
+    TextEditingController controller,
+    String label,
+  ) {
+    return TextFormField(
+      controller: controller,
+      decoration: _inputDecoration(context, label),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'وارد کردن $label الزامی است';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _selectionField({
+    required String label,
+    required VoidCallback onTap,
+    String? value,
+    String? placeholder,
+    IconData? icon,
+  }) {
+    final theme = Theme.of(context);
+    final hasValue = value != null && value.trim().isNotEmpty;
+    final hintStyle =
+        theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor);
+    final displayWidget = hasValue
+        ? Text(
+            value!,
+            style: theme.textTheme.bodyMedium,
+          )
+        : placeholder != null && placeholder.isNotEmpty
+            ? Text(
+                placeholder,
+                style: hintStyle,
+              )
+            : const SizedBox(height: 20);
+    return Material(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: InputDecorator(
+          isEmpty: false,
+          decoration: _inputDecoration(
+            context,
+            label,
+            suffixIcon: Icon(icon ?? Icons.expand_more),
+            alwaysFloatLabel: true,
+          ),
+          child: displayWidget,
+        ),
+      ),
+    );
+  }
+
+  Widget _multiSelectionField({
+    required String label,
+    required Set<String> values,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final hasValue = values.isNotEmpty;
+    final chips = values
+        .map(
+          (value) => Chip(
+            label: Text(value),
+            visualDensity: VisualDensity.compact,
+          ),
+        )
+        .toList();
+    return Material(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: InputDecorator(
+          isEmpty: false,
+          decoration: _inputDecoration(
+            context,
+            label,
+            alwaysFloatLabel: true,
+          ),
+          child: hasValue
+              ? Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: chips,
+                )
+              : Text(
+                  'موردی انتخاب نشده',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.hintColor,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _openSingleSelection({
+    required String contextTitle,
+    required List<String> options,
+    String? initialValue,
+  }) {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (modalContext) {
+        var query = '';
+        var selectedValue = initialValue;
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(modalContext).viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: StatefulBuilder(
+                  builder: (context, setModalState) {
+                    final normalized = query.trim().toLowerCase();
+                    final filtered = normalized.isEmpty
+                        ? options
+                        : options
+                            .where(
+                              (option) => option.toLowerCase().contains(normalized),
+                            )
+                            .toList();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'انتخاب $contextTitle',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            labelText: 'جستجو',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) =>
+                              setModalState(() => query = value),
+                        ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: filtered.isEmpty
+                              ? const Center(child: Text('موردی یافت نشد'))
+                              : ListView.builder(
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    final option = filtered[index];
+                                    return RadioListTile<String>(
+                                      value: option,
+                                      groupValue: selectedValue,
+                                      title: Text(option),
+                                      onChanged: (value) {
+                                        if (value == null) {
+                                          return;
+                                        }
+                                        selectedValue = value;
+                                        Navigator.of(context).pop(value);
+                                      },
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Set<String>?> _openMultiSelection({
+    required String title,
+    required List<String> options,
+    required Set<String> currentValues,
+  }) {
+    return showModalBottomSheet<Set<String>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (modalContext) {
+        var query = '';
+        final tempSelection = currentValues.toSet();
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(modalContext).viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.65,
+                child: StatefulBuilder(
+                  builder: (context, setModalState) {
+                    final normalized = query.trim().toLowerCase();
+                    final filtered = normalized.isEmpty
+                        ? options
+                        : options
+                            .where(
+                              (option) => option.toLowerCase().contains(normalized),
+                            )
+                            .toList();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'انتخاب $title',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            labelText: 'جستجو',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) => setModalState(() => query = value),
+                        ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: filtered.isEmpty
+                              ? const Center(child: Text('موردی یافت نشد'))
+                              : ListView.builder(
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    final option = filtered[index];
+                                    final isChecked = tempSelection.contains(option);
+                                    return CheckboxListTile(
+                                      value: isChecked,
+                                      title: Text(option),
+                                      onChanged: (checked) {
+                                        setModalState(() {
+                                          if (checked ?? false) {
+                                            tempSelection.add(option);
+                                          } else {
+                                            tempSelection.remove(option);
+                                          }
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('انصراف'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pop(tempSelection),
+                              child: const Text('تایید انتخاب'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Jalali?> _showJalaliDatePicker({
+    required Jalali initialDate,
+    required Jalali firstDate,
+    required Jalali lastDate,
+  }) {
+    final firstMonthStart = Jalali(firstDate.year, firstDate.month, 1);
+    final lastMonthStart = Jalali(lastDate.year, lastDate.month, 1);
+    return showModalBottomSheet<Jalali>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (modalContext) {
+        var visibleMonth = Jalali(initialDate.year, initialDate.month, 1);
+        Jalali? tempSelection = initialDate;
+        final mediaQuery = MediaQuery.of(context);
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: mediaQuery.viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: mediaQuery.size.height * 0.6,
+                child: StatefulBuilder(
+                  builder: (context, setModalState) {
+                    final theme = Theme.of(context);
+                    final canGoPrev =
+                        _compareJalali(visibleMonth, firstMonthStart) > 0;
+                    final canGoNext =
+                        _compareJalali(visibleMonth, lastMonthStart) < 0;
+                    final headerText =
+                        '${visibleMonth.formatter.mN} ${visibleMonth.year}';
+                    final headerDisplay = _toPersianDigits(headerText);
+                    final startWeekIndex =
+                        (Jalali(visibleMonth.year, visibleMonth.month, 1)
+                                    .weekDay -
+                                1) %
+                            7;
+                    final leadingEmpty = (startWeekIndex + 7) % 7;
+                    final daysInMonth = visibleMonth.monthLength;
+                    final cells = <Widget>[];
+                    for (var i = 0; i < leadingEmpty; i++) {
+                      cells.add(const SizedBox.shrink());
+                    }
+                    for (var day = 1; day <= daysInMonth; day++) {
+                      final currentDate =
+                          Jalali(visibleMonth.year, visibleMonth.month, day);
+                      final isDisabled = _compareJalali(
+                                currentDate,
+                                firstDate,
+                              ) <
+                              0 ||
+                          _compareJalali(currentDate, lastDate) > 0;
+                      final isSelected = tempSelection != null &&
+                          _compareJalali(currentDate, tempSelection!) == 0;
+                      cells.add(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: isDisabled
+                                ? null
+                                : () {
+                                    setModalState(() {
+                                      tempSelection = currentDate;
+                                    });
+                                  },
+                            child: Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : Colors.transparent,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                _toPersianDigits(day.toString()),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: isSelected
+                                      ? theme.colorScheme.onPrimary
+                                      : isDisabled
+                                          ? theme.disabledColor
+                                          : theme.colorScheme.onSurface,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    while (cells.length % 7 != 0) {
+                      cells.add(const SizedBox.shrink());
+                    }
+                    final rows = <TableRow>[];
+                    for (var i = 0; i < cells.length; i += 7) {
+                      rows.add(
+                        TableRow(
+                          children: cells.sublist(i, i + 7),
+                        ),
+                      );
+                    }
+                    final selectedLabel = tempSelection == null
+                        ? ''
+                        : _toPersianDigits(
+                            '${tempSelection!.day} ${tempSelection!.formatter.mN} ${tempSelection!.year}',
+                          );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: canGoNext
+                                  ? () => setModalState(
+                                        () => visibleMonth =
+                                            _nextMonth(visibleMonth),
+                                      )
+                                  : null,
+                              icon: const Icon(Icons.chevron_left),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  headerDisplay,
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: canGoPrev
+                                  ? () => setModalState(
+                                        () => visibleMonth =
+                                            _previousMonth(visibleMonth),
+                                      )
+                                  : null,
+                              icon: const Icon(Icons.chevron_right),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: _weekdayLabels
+                              .map(
+                                (label) => Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      label,
+                                      style: theme.textTheme.labelLarge
+                                          ?.copyWith(
+                                              color:
+                                                  theme.colorScheme.primary),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Table(children: rows),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          selectedLabel.isEmpty
+                              ? 'تاریخی انتخاب نشده است'
+                              : 'تاریخ انتخاب شده: $selectedLabel',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('انصراف'),
+                            ),
+                            const Spacer(),
+                            FilledButton(
+                              onPressed: tempSelection == null
+                                  ? null
+                                  : () =>
+                                      Navigator.of(context).pop(tempSelection),
+                              child: const Text('تایید تاریخ'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _compareJalali(Jalali a, Jalali b) {
+    if (a.year != b.year) {
+      return a.year.compareTo(b.year);
+    }
+    if (a.month != b.month) {
+      return a.month.compareTo(b.month);
+    }
+    return a.day.compareTo(b.day);
+  }
+
+  Jalali _previousMonth(Jalali date) {
+    var year = date.year;
+    var month = date.month - 1;
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    }
+    return Jalali(year, month, 1);
+  }
+
+  Jalali _nextMonth(Jalali date) {
+    var year = date.year;
+    var month = date.month + 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    return Jalali(year, month, 1);
+  }
+
+  Future<void> _pickDateTime({required bool isStart}) async {
+    try {
+      final now = DateTime.now();
+      final currentValue = isStart ? _startDateTime : _endDateTime;
+      final baseDateTime = currentValue ?? now;
+      final initialJalali = Jalali.fromDateTime(baseDateTime);
+      final jalali = await _showJalaliDatePicker(
+        initialDate: initialJalali,
+        firstDate: Jalali(initialJalali.year - 2, 1, 1),
+        lastDate: Jalali(initialJalali.year + 2, 12, 29),
+      );
+      if (jalali == null) {
+        return;
+      }
+      final selectedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(baseDateTime),
+        builder: (context, child) {
+          final mediaQuery = MediaQuery.of(context);
+          return MediaQuery(
+            data: mediaQuery.copyWith(alwaysUse24HourFormat: true),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        },
+      );
+      if (selectedTime == null) {
+        return;
+      }
+      final gregorian = jalali.toDateTime();
+      final selectedDateTime = DateTime(
+        gregorian.year,
+        gregorian.month,
+        gregorian.day,
+        selectedTime.hour,
+        selectedTime.minute,
+      );
+      setState(() {
+        if (isStart) {
+          _startDateTime = selectedDateTime;
+        } else {
+          _endDateTime = selectedDateTime;
+        }
+      });
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('باز کردن انتخابگر تاریخ با خطا روبه‌رو شد.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  String? _formatDateTime(DateTime? dateTime) {
+    if (dateTime == null) {
+      return null;
+    }
+    final jalali = Jalali.fromDateTime(dateTime);
+    final dayName = _normalizeDayName(jalali.formatter.wN);
+    final dateText =
+        '$dayName، ${jalali.formatter.d} ${jalali.formatter.mN} ${jalali.year}';
+    final time =
+        '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    return _toPersianDigits('$dateText - ساعت $time');
+  }
+
+  void _handleSubmit() {
+    final missingSelections = <String>[];
+    if (_selectedExpert == null) missingSelections.add('کارشناس');
+    if (_selectedBorehole == null) missingSelections.add('شماره گمانه');
+    if (_selectedDriller == null) missingSelections.add('حفار');
+    if (_selectedShiftLeader == null) missingSelections.add('سرشیفت');
+    if (_selectedAssistants.isEmpty) missingSelections.add('پرسنل کمک حفار');
+    if (_startDateTime == null) missingSelections.add('زمان شروع');
+    if (_endDateTime == null) missingSelections.add('زمان پایان');
+
+    if (missingSelections.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('لطفا ${missingSelections.join('، ')} را تکمیل کنید.'),
+          backgroundColor: Colors.orange.shade700,
+        ),
+      );
+      return;
+    }
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _toPersianDigits('فرم ثبت شد. شیفت ${_selectedShift.label} آماده ارسال است.'),
+        ),
+      ),
+    );
+  }
+}
+
+enum DrillShift { day, night }
+
+extension DrillShiftInfo on DrillShift {
+  String get label {
+    switch (this) {
+      case DrillShift.day:
+        return 'روز';
+      case DrillShift.night:
+        return 'شب';
+    }
+  }
 }
 
 class NotificationsPage extends StatelessWidget {
