@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -464,14 +467,37 @@ class _FormsPageState extends State<FormsPage> {
       order: 3,
       builder: (_) => const VehicleDeliveryFormPage(),
     ),
-    ...List.generate(
-      6,
-      (index) => _NewFormItem(
-        title: 'فرم ${index + 5}',
-        order: index + 4,
-      ),
+    _NewFormItem(
+      title: 'فرم اتمام گمانه',
+      order: 4,
+      builder: (_) => const BoreholeCompletionFormPage(),
     ),
-  ];
+    _NewFormItem(
+      title: 'فرم ایجاد گمانه',
+      order: 5,
+      builder: (_) => const BoreholeCreationFormPage(),
+    ),
+    _NewFormItem(
+      title: 'فرم درخواست تعمیر',
+      order: 6,
+      builder: (_) => const RepairRequestFormPage(),
+    ),
+  _NewFormItem(
+    title: 'فرم سرویس دوره‌ای',
+    order: 7,
+    builder: (_) => const PeriodicServiceFormPage(),
+  ),
+  _NewFormItem(
+    title: 'چک لیست خودرو سبک و سنگین',
+    order: 8,
+    builder: (_) => const VehicleInspectionFormPage(),
+  ),
+  _NewFormItem(
+    title: 'چک لیست روزانه دستگاه حفاری',
+    order: 9,
+    builder: (_) => const DrillingChecklistFormPage(),
+  ),
+];
 
   List<FormEntry> get _visibleForms =>
       _showAll ? widget.forms : widget.forms.take(3).toList();
@@ -762,6 +788,39 @@ class _NewFormItem {
 }
 
 const List<String> _weekdayLabels = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+const Map<String, List<String>> _iranCities = {
+  'آذربایجان شرقی': ['تبریز', 'مراغه', 'مرند', 'اهر', 'بناب'],
+  'آذربایجان غربی': ['ارومیه', 'خوی', 'میاندوآب', 'مهاباد'],
+  'اردبیل': ['اردبیل', 'پارس‌آباد', 'خلخال', 'مشگین‌شهر'],
+  'اصفهان': ['اصفهان', 'کاشان', 'خمینی‌شهر', 'نجف‌آباد', 'شاهین‌شهر'],
+  'البرز': ['کرج', 'فردیس', 'نظرآباد', 'هشتگرد'],
+  'ایلام': ['ایلام', 'دهلران', 'مهران', 'ایوان'],
+  'بوشهر': ['بوشهر', 'برازجان', 'کنگان', 'دیلم'],
+  'تهران': ['تهران', 'اسلام‌شهر', 'ملارد', 'ورامین', 'ری'],
+  'چهارمحال و بختیاری': ['شهرکرد', 'بروجن', 'فرخ‌شهر'],
+  'خراسان جنوبی': ['بیرجند', 'قائن', 'طبس'],
+  'خراسان رضوی': ['مشهد', 'نیشابور', 'سبزوار', 'تربت حیدریه'],
+  'خراسان شمالی': ['بجنورد', 'شیروان', 'اسفراین'],
+  'خوزستان': ['اهواز', 'آبادان', 'دزفول', 'ماهشهر', 'بهبهان'],
+  'زنجان': ['زنجان', 'ابهر', 'خرمدره'],
+  'سمنان': ['سمنان', 'شاهرود', 'دامغان', 'گرمسار'],
+  'سیستان و بلوچستان': ['زاهدان', 'چابهار', 'ایرانشهر', 'زابل'],
+  'فارس': ['شیراز', 'مرودشت', 'کازرون', 'لار', 'جهرم'],
+  'قزوین': ['قزوین', 'الوند', 'تاکستان'],
+  'قم': ['قم'],
+  'كردستان': ['سنندج', 'سقز', 'بانه', 'مریوان'],
+  'كرمان': ['کرمان', 'سیرجان', 'رفسنجان', 'جیرفت'],
+  'كرمانشاه': ['کرمانشاه', 'اسلام‌آباد غرب', 'سنقر'],
+  'كهگیلویه و بویراحمد': ['یاسوج', 'دوگنبدان', 'دهدشت'],
+  'گلستان': ['گرگان', 'گنبد کاووس', 'بندر ترکمن'],
+  'گیلان': ['رشت', 'انزلی', 'لاهیجان', 'صومعه‌سرا'],
+  'لرستان': ['خرم‌آباد', 'بروجرد', 'دورود'],
+  'مازندران': ['ساری', 'بابل', 'آمل', 'قائم‌شهر', 'نوشهر'],
+  'مرکزی': ['اراک', 'ساوه', 'خمین', 'محلات'],
+  'هرمزگان': ['بندرعباس', 'قشم', 'میناب', 'کیش'],
+  'همدان': ['همدان', 'ملایر', 'نهاوند'],
+  'یزد': ['یزد', 'اردکان', 'میبد', 'بافق'],
+};
 
 mixin _FormFieldMixin<T extends StatefulWidget> on State<T> {
   InputDecoration _inputDecoration(
@@ -915,6 +974,75 @@ mixin _FormFieldMixin<T extends StatefulWidget> on State<T> {
         ),
       ),
     );
+  }
+
+  Future<DateTime?> pickJalaliDate({DateTime? initialDate}) async {
+    final base = initialDate ?? DateTime.now();
+    final initialJalali = Jalali.fromDateTime(base);
+    final jalali = await _showJalaliDatePicker(
+      initialDate: initialJalali,
+      firstDate: Jalali(initialJalali.year - 2, 1, 1),
+      lastDate: Jalali(initialJalali.year + 2, 12, 29),
+    );
+    if (jalali == null) {
+      return null;
+    }
+    final gregorian = jalali.toDateTime();
+    return DateTime(gregorian.year, gregorian.month, gregorian.day);
+  }
+
+  Future<DateTime?> pickJalaliDateTime({DateTime? initialDate}) async {
+    final base = initialDate ?? DateTime.now();
+    final initialJalali = Jalali.fromDateTime(base);
+    final jalali = await _showJalaliDatePicker(
+      initialDate: initialJalali,
+      firstDate: Jalali(initialJalali.year - 2, 1, 1),
+      lastDate: Jalali(initialJalali.year + 2, 12, 29),
+    );
+    if (jalali == null) {
+      return null;
+    }
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(alwaysUse24HourFormat: true),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
+    );
+    if (time == null) {
+      return null;
+    }
+    final gregorian = jalali.toDateTime();
+    return DateTime(
+      gregorian.year,
+      gregorian.month,
+      gregorian.day,
+      time.hour,
+      time.minute,
+    );
+  }
+
+  String? formatJalaliDate(DateTime? value, {bool includeTime = false}) {
+    if (value == null) {
+      return null;
+    }
+    final jalali = Jalali.fromDateTime(value);
+    final dayName = _normalizeDayName(jalali.formatter.wN);
+    final dateText =
+        '$dayName، ${jalali.formatter.d} ${jalali.formatter.mN} ${jalali.year}';
+    if (!includeTime) {
+      return _toPersianDigits(dateText);
+    }
+    final time =
+        '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+    return _toPersianDigits('$dateText - ساعت $time');
   }
 
   Future<Jalali?> _showJalaliDatePicker({
@@ -2051,6 +2179,1557 @@ class VehicleDeliveryFormPage extends StatefulWidget {
   State<VehicleDeliveryFormPage> createState() => _VehicleDeliveryFormPageState();
 }
 
+class BoreholeCompletionFormPage extends StatefulWidget {
+  const BoreholeCompletionFormPage({super.key});
+
+  @override
+  State<BoreholeCompletionFormPage> createState() =>
+      _BoreholeCompletionFormPageState();
+}
+
+class _BoreholeCompletionFormPageState
+    extends State<BoreholeCompletionFormPage> with _FormFieldMixin {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _designedDepthController = TextEditingController();
+  final TextEditingController _finalDepthController = TextEditingController();
+  final TextEditingController _sizePController = TextEditingController();
+  final TextEditingController _sizeHController = TextEditingController();
+  final TextEditingController _sizeNController = TextEditingController();
+  final TextEditingController _blackPipeController = TextEditingController();
+  final TextEditingController _casingPController = TextEditingController();
+  final TextEditingController _casingHController = TextEditingController();
+  final TextEditingController _cementMeterController = TextEditingController();
+  final TextEditingController _cementCountController = TextEditingController();
+  final TextEditingController _cementScrapeMeterController =
+      TextEditingController();
+  final TextEditingController _cementScrapeCountController =
+      TextEditingController();
+  final TextEditingController _waterAsphaltController = TextEditingController();
+  final TextEditingController _waterDirtController = TextEditingController();
+  final TextEditingController _sampleBoxesController = TextEditingController();
+  final TextEditingController _doubleWallController = TextEditingController();
+  final TextEditingController _tripleWallController = TextEditingController();
+  final TextEditingController _rqdController = TextEditingController();
+  final TextEditingController _crController = TextEditingController();
+  final TextEditingController _crOreController = TextEditingController();
+  final TextEditingController _crWasteController = TextEditingController();
+  final TextEditingController _cementBlocksController = TextEditingController();
+  final TextEditingController _galvanizedPipeController =
+      TextEditingController();
+  final TextEditingController _hardnessSoftController = TextEditingController();
+  final TextEditingController _hardnessMidController = TextEditingController();
+  final TextEditingController _oreLengthController = TextEditingController();
+  final TextEditingController _alluviumLengthController =
+      TextEditingController();
+  final TextEditingController _wasteLengthController = TextEditingController();
+  final TextEditingController _bentoniteLengthController =
+      TextEditingController();
+  final TextEditingController _supermixLengthController =
+      TextEditingController();
+  final TextEditingController _otherAdditivesController =
+      TextEditingController();
+  final TextEditingController _pondVolumeController = TextEditingController();
+  final TextEditingController _cementStopController = TextEditingController();
+  final TextEditingController _surveyLengthController = TextEditingController();
+  final TextEditingController _deviceStopController = TextEditingController();
+  final TextEditingController _deviceMoveController = TextEditingController();
+  final TextEditingController _wellFillDescriptionController =
+      TextEditingController();
+  final TextEditingController _piezometerPressureController =
+      TextEditingController();
+  final TextEditingController _piezometerLengthController =
+      TextEditingController();
+  final TextEditingController _pressureTenBarController =
+      TextEditingController();
+  final TextEditingController _inchLengthController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  String? _selectedDevice;
+  DateTime? _handoverDate;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _photoName;
+  String? _photoPath;
+
+  bool _hasPlatform = false;
+  bool _movedToNext = false;
+  bool _concreted = false;
+  bool _wellFilled = false;
+  bool _hasPiezometer = false;
+
+  final Set<String> _piezometerPipes = {};
+
+  static const List<String> _devices = [
+    'دستگاه 101',
+    'دستگاه 205',
+    'دستگاه 310',
+    'دستگاه 412',
+  ];
+
+  static const List<String> _piezometerPipeOptions = [
+    'لوله پلی اتیلن',
+    'PVC',
+    'گالوانیزه',
+  ];
+
+  @override
+  void dispose() {
+    _designedDepthController.dispose();
+    _finalDepthController.dispose();
+    _sizePController.dispose();
+    _sizeHController.dispose();
+    _sizeNController.dispose();
+    _blackPipeController.dispose();
+    _casingPController.dispose();
+    _casingHController.dispose();
+    _cementMeterController.dispose();
+    _cementCountController.dispose();
+    _cementScrapeMeterController.dispose();
+    _cementScrapeCountController.dispose();
+    _waterAsphaltController.dispose();
+    _waterDirtController.dispose();
+    _sampleBoxesController.dispose();
+    _doubleWallController.dispose();
+    _tripleWallController.dispose();
+    _rqdController.dispose();
+    _crController.dispose();
+    _crOreController.dispose();
+    _crWasteController.dispose();
+    _cementBlocksController.dispose();
+    _galvanizedPipeController.dispose();
+    _hardnessSoftController.dispose();
+    _hardnessMidController.dispose();
+    _oreLengthController.dispose();
+    _alluviumLengthController.dispose();
+    _wasteLengthController.dispose();
+    _bentoniteLengthController.dispose();
+    _supermixLengthController.dispose();
+    _otherAdditivesController.dispose();
+    _pondVolumeController.dispose();
+    _cementStopController.dispose();
+    _surveyLengthController.dispose();
+    _deviceStopController.dispose();
+    _deviceMoveController.dispose();
+    _wellFillDescriptionController.dispose();
+    _piezometerPressureController.dispose();
+    _piezometerLengthController.dispose();
+    _pressureTenBarController.dispose();
+    _inchLengthController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('فرم اتمام گمانه'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _selectionField(
+                    label: 'شماره دستگاه',
+                    value: _selectedDevice,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'شماره دستگاه',
+                        options: _devices,
+                        initialValue: _selectedDevice,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedDevice = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _datePickerField(
+                    label: 'تاریخ تحویل گمانه به پیمانکار',
+                    value: _handoverDate,
+                    onPick: (value) => setState(() => _handoverDate = value),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    _designedDepthController,
+                    'متراژ عمق طراحی شده',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    _finalDepthController,
+                    'متراژ عمق نهایی حفاری شده',
+                  ),
+                  const SizedBox(height: 16),
+                  _datePickerField(
+                    label: 'تاریخ شروع حفاری',
+                    value: _startDate,
+                    onPick: (value) => setState(() => _startDate = value),
+                  ),
+                  const SizedBox(height: 16),
+                  _datePickerField(
+                    label: 'تاریخ اتمام حفاری',
+                    value: _endDate,
+                    onPick: (value) => setState(() => _endDate = value),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildDepthGrid(),
+                  const SizedBox(height: 24),
+                  _buildResourceSection(),
+                  const SizedBox(height: 24),
+                  _buildLogisticsSection(),
+                  const SizedBox(height: 24),
+                  _buildAdditivesSection(),
+                  const SizedBox(height: 24),
+                  _buildOperationsSection(),
+                  const SizedBox(height: 24),
+                  _buildPiezometerSection(),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('ثبت اطلاعات'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _datePickerField({
+    required String label,
+    required DateTime? value,
+    required ValueChanged<DateTime?> onPick,
+  }) {
+    return _selectionField(
+      label: label,
+      value: formatJalaliDate(value),
+      onTap: () async {
+        final result = await pickJalaliDate(initialDate: value);
+        if (result != null) {
+          onPick(result);
+        }
+      },
+      placeholder: 'انتخاب تاریخ',
+      icon: Icons.event,
+    );
+  }
+
+  Widget _buildDepthGrid() {
+    final fields = <MapEntry<TextEditingController, String>>[
+      MapEntry(_sizePController, 'متراژ حفاری با سایز P'),
+      MapEntry(_sizeHController, 'متراژ حفاری با سایز H'),
+      MapEntry(_sizeNController, 'متراژ حفاری با سایز N'),
+      MapEntry(_blackPipeController, 'متراژ حفاری با لوله سیاه'),
+      MapEntry(_casingPController, 'متراژ کیسینگ P'),
+      MapEntry(_casingHController, 'متراژ کیسینگ H'),
+      MapEntry(_cementMeterController, 'متراژ سیمان گمانه'),
+      MapEntry(_cementCountController, 'تعداد دفعات سیمان گمانه'),
+      MapEntry(_cementScrapeMeterController, 'متراژ تراشیدن سیمان گمانه'),
+      MapEntry(_cementScrapeCountController, 'دفعات تراشیدن سیمان گمانه'),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'متراژ حفاری',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ...fields.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildNumberField(item.key, item.value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResourceSection() {
+    final fields = <MapEntry<TextEditingController, String>>[
+      MapEntry(_waterAsphaltController, 'فاصله حمل آب (آسفالت) کیلومتر'),
+      MapEntry(_waterDirtController, 'فاصله حمل آب (خاکی) کیلومتر'),
+      MapEntry(_sampleBoxesController, 'تعداد جعبه نمونه'),
+      MapEntry(_doubleWallController, 'متراژ حفاری دوجداره'),
+      MapEntry(_tripleWallController, 'متراژ حفاری سه جداره'),
+      MapEntry(_rqdController, 'میانگین درصد RQD'),
+      MapEntry(_crController, 'میانگین درصد CR'),
+      MapEntry(_crOreController, 'میانگین درصد CR ماده معدنی'),
+      MapEntry(_crWasteController, 'میانگین درصد CR باطله'),
+      MapEntry(_cementBlocksController, 'بلوک سیمانی (۵۰×۵۰×۵۰)'),
+      MapEntry(_galvanizedPipeController, 'مقدار لوله گالوانیزه جهت سرچاهی'),
+      MapEntry(_hardnessSoftController, 'متراژ حفاری سختی ۰-۵.۵ موس'),
+      MapEntry(_hardnessMidController, 'متراژ حفاری سختی ۵.۵-۷ موس'),
+      MapEntry(_oreLengthController, 'متراژ ماده معدنی'),
+      MapEntry(_alluviumLengthController, 'متراژ آبرفت'),
+      MapEntry(_wasteLengthController, 'متراژ باطله'),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'مقادیر ثبت شده',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ...fields.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildNumberField(item.key, item.value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogisticsSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'لجستیک و توقف‌ها',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _bentoniteLengthController,
+              'متراژ حفاری با بنتونیت',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _supermixLengthController,
+              'متراژ حفاری با سوپرمیکس',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _otherAdditivesController,
+              'متراژ حفاری با سایر افزودنی‌ها',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _pondVolumeController,
+              'احداث و تجهیز حوضچه (متر مکعب)',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _cementStopController,
+              'میزان توقف حفاری به علت سیمان کاری (ساعت)',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _surveyLengthController,
+              'انحراف سنجی گمانه (متر)',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _deviceStopController,
+              'میزان توقف عملیات حفاری به ازای هر دستگاه و افراد (دستگاه روز)',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _deviceMoveController,
+              'جابجایی هر دستگاه و تجهیزات بین گمانه (دستگاه روز)',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdditivesSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            SwitchListTile(
+              title: const Text('ایجاد محوطه/سکوی حفاری'),
+              value: _hasPlatform,
+              onChanged: (value) => setState(() => _hasPlatform = value),
+            ),
+            SwitchListTile(
+              title: const Text('جابجایی دستگاه برای گمانه بعدی'),
+              value: _movedToNext,
+              onChanged: (value) => setState(() => _movedToNext = value),
+            ),
+            SwitchListTile(
+              title: const Text('مهار کردن دستگاه با بتن'),
+              value: _concreted,
+              onChanged: (value) => setState(() => _concreted = value),
+            ),
+            SwitchListTile(
+              title: const Text('پر کردن چاه'),
+              value: _wellFilled,
+              onChanged: (value) => setState(() => _wellFilled = value),
+            ),
+            if (_wellFilled)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _buildTextField(
+                  _wellFillDescriptionController,
+                  'شرح مواد پرکننده چاه',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOperationsSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final picked = await _imagePicker.pickImage(
+                        source: ImageSource.gallery,
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _photoName = picked.name;
+                          _photoPath = picked.path;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('انتخاب عکس رنگی'),
+                  ),
+                ),
+              ],
+            ),
+            if (_photoName != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'فایل انتخاب شده: ${_photoName!}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (_photoPath != null) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_photoPath!),
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            _buildNumberField(
+              _pressureTenBarController,
+              'فشار ۱۰ بار قطر',
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _inchLengthController,
+              'اینچ با متراژ',
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              _descriptionController,
+              'توضیحات',
+              maxLines: 4,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPiezometerSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              title: const Text('پیزومتری'),
+              value: _hasPiezometer,
+              onChanged: (value) => setState(() => _hasPiezometer = value),
+            ),
+            if (_hasPiezometer) ...[
+              const SizedBox(height: 8),
+              _multiSelectionField(
+                label: 'نوع لوله پیزومتری',
+                values: _piezometerPipes,
+                onTap: () async {
+                  final result = await showSearchableMultiSelectionSheet(
+                    context: context,
+                    title: 'انتخاب لوله',
+                    options: _piezometerPipeOptions,
+                    currentValues: _piezometerPipes,
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _piezometerPipes
+                        ..clear()
+                        ..addAll(result);
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildNumberField(
+                _piezometerPressureController,
+                'فشار ۱۰ بار قطر (پیزومتر)',
+              ),
+              const SizedBox(height: 12),
+              _buildNumberField(
+                _piezometerLengthController,
+                'متراژ پیزومتری',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_selectedDevice == null ||
+        _handoverDate == null ||
+        _startDate == null ||
+        _endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لطفا دستگاه و تاریخ‌های اصلی را تکمیل کنید.'),
+        ),
+      );
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _toPersianDigits('اتمام گمانه برای ${_selectedDevice!} ثبت شد.'),
+        ),
+      ),
+    );
+  }
+}
+
+class BoreholeCreationFormPage extends StatefulWidget {
+  const BoreholeCreationFormPage({super.key});
+
+  @override
+  State<BoreholeCreationFormPage> createState() =>
+      _BoreholeCreationFormPageState();
+}
+
+class RepairRequestFormPage extends StatefulWidget {
+  const RepairRequestFormPage({super.key});
+
+  @override
+  State<RepairRequestFormPage> createState() => _RepairRequestFormPageState();
+}
+
+class PeriodicServiceFormPage extends StatefulWidget {
+  const PeriodicServiceFormPage({super.key});
+
+  @override
+  State<PeriodicServiceFormPage> createState() =>
+      _PeriodicServiceFormPageState();
+}
+
+class _PeriodicServiceFormPageState extends State<PeriodicServiceFormPage>
+    with _FormFieldMixin {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _kilometerController = TextEditingController();
+  final TextEditingController _mechanicController = TextEditingController();
+
+  DateTime? _serviceDate;
+  String? _selectedDriver;
+  String? _selectedCycle;
+
+  bool _oilFilter = false;
+  bool _fuelFilter = false;
+  bool _greaseFilter = false;
+  bool _engineOil = false;
+  bool _gearOil = false;
+  bool _diffOil = false;
+
+  static const List<String> _drivers = [
+    'علی حیدری',
+    'مسعود نیازی',
+    'مریم سراج',
+    'هادی نجفی',
+  ];
+
+  static const List<String> _cycles = [
+    '۵۰۰۰ کیلومتر',
+    '۱۰۰۰۰ کیلومتر',
+    '۱۵۰۰۰ کیلومتر',
+  ];
+
+  @override
+  void dispose() {
+    _kilometerController.dispose();
+    _mechanicController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('فرم سرویس دوره‌ای'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _selectionField(
+                    label: 'تاریخ انجام سرویس',
+                    value: formatJalaliDate(_serviceDate),
+                    onTap: () async {
+                      final result = await pickJalaliDate(initialDate: _serviceDate);
+                      if (result != null) {
+                        setState(() => _serviceDate = result);
+                      }
+                    },
+                    placeholder: 'انتخاب تاریخ',
+                    icon: Icons.event,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(_kilometerController, 'کیلومتر انجام سرویس'),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'نام راننده',
+                    value: _selectedDriver,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'راننده',
+                        options: _drivers,
+                        initialValue: _selectedDriver,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedDriver = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(_mechanicController, 'سرویس کار'),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'دوره',
+                    value: _selectedCycle,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'دوره سرویس',
+                        options: _cycles,
+                        initialValue: _selectedCycle,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedCycle = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildServiceChecklist(),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.car_repair),
+                      label: const Text('ثبت سرویس'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceChecklist() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'موارد سرویس',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            CheckboxListTile(
+              value: _oilFilter,
+              onChanged: (value) => setState(() => _oilFilter = value ?? false),
+              title: const Text('تعویض فیلتر روغن'),
+            ),
+            CheckboxListTile(
+              value: _fuelFilter,
+              onChanged: (value) => setState(() => _fuelFilter = value ?? false),
+              title: const Text('تعویض فیلتر صافی بنزین'),
+            ),
+            CheckboxListTile(
+              value: _greaseFilter,
+              onChanged: (value) => setState(() => _greaseFilter = value ?? false),
+              title: const Text('تعویض فیلتر گریسکاری'),
+            ),
+            CheckboxListTile(
+              value: _engineOil,
+              onChanged: (value) => setState(() => _engineOil = value ?? false),
+              title: const Text('تعویض روغن موتور'),
+            ),
+            CheckboxListTile(
+              value: _gearOil,
+              onChanged: (value) => setState(() => _gearOil = value ?? false),
+              title: const Text('تعویض روغن گیربکس'),
+            ),
+            CheckboxListTile(
+              value: _diffOil,
+              onChanged: (value) => setState(() => _diffOil = value ?? false),
+              title: const Text('تعویض روغن دیفرانسیل'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_serviceDate == null || _selectedDriver == null || _selectedCycle == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تاریخ، راننده و دوره را تکمیل کنید.')),
+      );
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _toPersianDigits('سرویس دوره‌ای برای $_selectedDriver ثبت شد.'),
+        ),
+      ),
+    );
+  }
+}
+
+class VehicleInspectionFormPage extends StatefulWidget {
+  const VehicleInspectionFormPage({super.key});
+
+  @override
+  State<VehicleInspectionFormPage> createState() =>
+      _VehicleInspectionFormPageState();
+}
+
+class _VehicleInspectionFormPageState extends State<VehicleInspectionFormPage>
+    with _FormFieldMixin {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _tireHealthController = TextEditingController();
+
+  String? _selectedSender;
+  String? _selectedProvince;
+  String? _selectedCity;
+  final Map<String, ConditionQuality> _checks = {
+    'سطح آب رادیاتور': ConditionQuality.good,
+    'سطح روغن موتور': ConditionQuality.good,
+    'سیستم هیدرولیک': ConditionQuality.good,
+    'سطح روغن ترمز': ConditionQuality.good,
+    'وضعیت بدنه (زدگی)': ConditionQuality.good,
+    'وضعیت باطری و استارت': ConditionQuality.good,
+    'دستگیره درب و قفل‌ها': ConditionQuality.good,
+    'وضعیت کلاچ و ترمز': ConditionQuality.good,
+    'وضعیت چرخ‌ها و جلوبندی': ConditionQuality.good,
+    'وضعیت چراغ جلو و عقب': ConditionQuality.good,
+    'چراغ ترمز و راهنماها': ConditionQuality.good,
+    'وضعیت بخاری و کولر': ConditionQuality.good,
+    'وضعیت کمک فنر': ConditionQuality.good,
+    'تسمه پروانه موتور': ConditionQuality.good,
+    'تسمه تایم': ConditionQuality.good,
+    'تجهیزات ایمنی': ConditionQuality.good,
+    'زاپاس و آچار چرخ و جک': ConditionQuality.good,
+    'عملکرد آمپرها': ConditionQuality.good,
+    'وضعیت برف پاک کن': ConditionQuality.good,
+    'وضعیت آینه‌ها': ConditionQuality.good,
+    'وضعیت شیشه‌ها': ConditionQuality.good,
+    'نظافت داخلی خودرو': ConditionQuality.good,
+  };
+  ConditionQuality _tireCondition = ConditionQuality.good;
+
+  static const List<String> _senders = [
+    'واحد حمل و نقل',
+    'سرپرست ناوگان',
+    'راننده شیفت روز',
+    'راننده شیفت شب',
+  ];
+
+  @override
+  void dispose() {
+    _tireHealthController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('چک لیست خودرو'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _selectionField(
+                    label: 'ارسال کننده',
+                    value: _selectedSender,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'ارسال کننده',
+                        options: _senders,
+                        initialValue: _selectedSender,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedSender = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'استان',
+                    value: _selectedProvince,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'استان',
+                        options: _iranCities.keys.toList(),
+                        initialValue: _selectedProvince,
+                      );
+                      if (result != null) {
+                        setState(() {
+                          _selectedProvince = result;
+                          _selectedCity = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'شهر',
+                    value: _selectedCity,
+                    onTap: () async {
+                      final province = _selectedProvince;
+                      if (province == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('ابتدا استان را انتخاب کنید.')),
+                        );
+                        return;
+                      }
+                      final options = _iranCities[province] ?? [];
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'شهر',
+                        options: options,
+                        initialValue: _selectedCity,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedCity = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildChecksCard(),
+                  const SizedBox(height: 16),
+                  _buildTireSection(),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check),
+                      label: const Text('ثبت چک لیست'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChecksCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: _checks.keys.map(_buildConditionRow).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConditionRow(String title) {
+    final current = _checks[title] ?? ConditionQuality.good;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(title)),
+          SegmentedButton<ConditionQuality>(
+            segments: ConditionQuality.values
+                .map(
+                  (value) => ButtonSegment<ConditionQuality>(
+                    value: value,
+                    label: Text(value.label),
+                  ),
+                )
+                .toList(),
+            selected: {current},
+            onSelectionChanged: (selection) {
+              if (selection.isNotEmpty) {
+                setState(() => _checks[title] = selection.first);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTireSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'وضعیت لاستیک‌ها',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<ConditionQuality>(
+              segments: ConditionQuality.values
+                  .map(
+                    (value) => ButtonSegment<ConditionQuality>(
+                      value: value,
+                      label: Text(value.label),
+                    ),
+                  )
+                  .toList(),
+              selected: {_tireCondition},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) {
+                  setState(() => _tireCondition = selection.first);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildNumberField(
+              _tireHealthController,
+              'درصد سلامت لاستیک‌ها',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_selectedSender == null ||
+        _selectedProvince == null ||
+        _selectedCity == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ارسال کننده، استان و شهر را انتخاب کنید.')),
+      );
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('چک لیست خودرو ثبت شد.')),
+    );
+  }
+}
+
+class DrillingChecklistFormPage extends StatefulWidget {
+  const DrillingChecklistFormPage({super.key});
+
+  @override
+  State<DrillingChecklistFormPage> createState() =>
+      _DrillingChecklistFormPageState();
+}
+
+class _DrillingChecklistFormPageState extends State<DrillingChecklistFormPage>
+    with _FormFieldMixin {
+  final _formKey = GlobalKey<FormState>();
+  final ImagePicker _picker = ImagePicker();
+
+  String? _selectedSender;
+  String? _selectedProvince;
+  String? _selectedCity;
+  String? _photoName;
+  String? _photoPath;
+
+  final Map<String, ConditionQuality> _checks = {
+    'سطح آب رادیاتور': ConditionQuality.good,
+    'سطح روغن باک هیدرولیک': ConditionQuality.good,
+    'سطح روغن اسپیندل': ConditionQuality.good,
+    'پمپ‌های هیدرولیک از نظر روغن‌ریزی': ConditionQuality.good,
+    'روغنکاری ریل‌های کشویی و تفلونی': ConditionQuality.good,
+    'آب‌پاشی و خنک کاری رادیاتور': ConditionQuality.good,
+    'گریس کاری پین جک‌ها (پایان گمانه)': ConditionQuality.good,
+    'گریس و روغن کاری نشیمن پایه جک‌ها': ConditionQuality.good,
+    'شست‌وشوی راد جک‌ها': ConditionQuality.good,
+  };
+
+  static const List<String> _senders = [
+    'اپراتور دستگاه',
+    'سرپرست حفاری',
+    'سوپروایزر شیفت',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('چک لیست دستگاه حفاری'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _selectionField(
+                    label: 'ارسال کننده',
+                    value: _selectedSender,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'ارسال کننده',
+                        options: _senders,
+                        initialValue: _selectedSender,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedSender = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'استان',
+                    value: _selectedProvince,
+                    onTap: () async {
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'استان',
+                        options: _iranCities.keys.toList(),
+                        initialValue: _selectedProvince,
+                      );
+                      if (result != null) {
+                        setState(() {
+                          _selectedProvince = result;
+                          _selectedCity = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'شهر',
+                    value: _selectedCity,
+                    onTap: () async {
+                      final province = _selectedProvince;
+                      if (province == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ابتدا استان را انتخاب کنید.')),
+                        );
+                        return;
+                      }
+                      final options = _iranCities[province] ?? [];
+                      final result = await showSearchableSingleSelectionSheet(
+                        context: context,
+                        title: 'شهر',
+                        options: options,
+                        initialValue: _selectedCity,
+                      );
+                      if (result != null) {
+                        setState(() => _selectedCity = result);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDrillingChecks(),
+                  const SizedBox(height: 16),
+                  _buildPhotoSection(),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.assignment_turned_in),
+                      label: const Text('ثبت چک لیست'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrillingChecks() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            ..._checks.keys.map(
+              (title) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(title)),
+                    SegmentedButton<ConditionQuality>(
+                      segments: ConditionQuality.values
+                          .map(
+                            (value) => ButtonSegment<ConditionQuality>(
+                              value: value,
+                              label: Text(value.label),
+                            ),
+                          )
+                          .toList(),
+                      selected: {_checks[title] ?? ConditionQuality.good},
+                      onSelectionChanged: (selection) {
+                        if (selection.isNotEmpty) {
+                          setState(() => _checks[title] = selection.first);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'عکس نمایشگر دستگاه حفاری',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final picked = await _picker.pickImage(source: ImageSource.gallery);
+                if (picked != null) {
+                  setState(() {
+                    _photoName = picked.name;
+                    _photoPath = picked.path;
+                  });
+                }
+              },
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('انتخاب عکس'),
+            ),
+            if (_photoName != null) ...[
+              const SizedBox(height: 8),
+              Text(_photoName!),
+            ],
+            if (_photoPath != null) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_photoPath!),
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_selectedSender == null ||
+        _selectedProvince == null ||
+        _selectedCity == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ارسال کننده، استان و شهر را انتخاب کنید.')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('چک لیست دستگاه حفاری ثبت شد.')),
+    );
+  }
+}
+
+enum RepairPriority { normal, urgent }
+
+extension RepairPriorityInfo on RepairPriority {
+  String get label => this == RepairPriority.normal ? 'عادی' : 'ضروری';
+}
+
+class _RepairRequestFormPageState extends State<RepairRequestFormPage>
+    with _FormFieldMixin {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
+  final TextEditingController _equipmentController = TextEditingController();
+  final TextEditingController _supplierController = TextEditingController();
+  final TextEditingController _costController = TextEditingController();
+  final TextEditingController _stopReasonController = TextEditingController();
+
+  DateTime? _startDateTime;
+  DateTime? _endDateTime;
+  RepairPriority _priority = RepairPriority.normal;
+  bool _doInsideCompany = true;
+  bool _hasStop = false;
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _durationController.dispose();
+    _equipmentController.dispose();
+    _supplierController.dispose();
+    _costController.dispose();
+    _stopReasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('فرم درخواست تعمیر'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTextField(_descriptionController, 'شرح فعالیت درخواستی', maxLines: 3),
+                  const SizedBox(height: 16),
+                  _buildTextField(_durationController, 'مدت زمان فعالیت'),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'شروع کار',
+                    value: formatJalaliDate(_startDateTime, includeTime: true),
+                    onTap: () async {
+                      final result =
+                          await pickJalaliDateTime(initialDate: _startDateTime);
+                      if (result != null) {
+                        setState(() => _startDateTime = result);
+                      }
+                    },
+                    placeholder: 'انتخاب تاریخ و ساعت',
+                    icon: Icons.event_available,
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'پایان کار',
+                    value: formatJalaliDate(_endDateTime, includeTime: true),
+                    onTap: () async {
+                      final result =
+                          await pickJalaliDateTime(initialDate: _endDateTime);
+                      if (result != null) {
+                        setState(() => _endDateTime = result);
+                      }
+                    },
+                    placeholder: 'انتخاب تاریخ و ساعت',
+                    icon: Icons.event_busy,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'میزان ضرورت انجام کار',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<RepairPriority>(
+                    segments: RepairPriority.values
+                        .map(
+                          (priority) => ButtonSegment<RepairPriority>(
+                            value: priority,
+                            label: Text(priority.label),
+                          ),
+                        )
+                        .toList(),
+                    selected: {_priority},
+                    onSelectionChanged: (selection) {
+                      if (selection.isNotEmpty) {
+                        setState(() => _priority = selection.first);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('آیا فعالیت داخل شرکت امکان پذیر است؟'),
+                    value: _doInsideCompany,
+                    onChanged: (value) => setState(() => _doInsideCompany = value),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(_equipmentController, 'قطعه تجهیزات'),
+                  const SizedBox(height: 16),
+                  _buildTextField(_supplierController, 'شرکت تجهیز کننده'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(_costController, 'هزینه تعمیرات (ریال)'),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('آیا تعمیرات توقف داشته؟'),
+                    value: _hasStop,
+                    onChanged: (value) => setState(() => _hasStop = value),
+                  ),
+                  if (_hasStop) ...[
+                    const SizedBox(height: 8),
+                    _buildTextField(_stopReasonController, 'علت توقف', maxLines: 2),
+                  ],
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.build),
+                      label: const Text('ثبت درخواست تعمیر'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_startDateTime == null || _endDateTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تاریخ‌های شروع و پایان را انتخاب کنید.')),
+      );
+      return;
+    }
+    if (_hasStop && _stopReasonController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('علت توقف را وارد کنید.')),
+      );
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('درخواست تعمیر ثبت شد.')),
+    );
+  }
+}
+
+class _BoreholeCreationFormPageState extends State<BoreholeCreationFormPage>
+    with _FormFieldMixin {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _coordXController = TextEditingController();
+  final TextEditingController _coordYController = TextEditingController();
+  final TextEditingController _coordZController = TextEditingController();
+  final TextEditingController _angleController = TextEditingController();
+  final TextEditingController _azimuthController = TextEditingController();
+
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _coordXController.dispose();
+    _coordYController.dispose();
+    _coordZController.dispose();
+    _angleController.dispose();
+    _azimuthController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('فرم ایجاد گمانه'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTextField(_nameController, 'نام گمانه'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(_coordXController, 'مختصات X'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(_coordYController, 'مختصات Y'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(_coordZController, 'مختصات Z'),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    _angleController,
+                    'زاویه نسبت به افق (درجه)',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumberField(
+                    _azimuthController,
+                    'آزیموت (درجه)',
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'تاریخ شروع',
+                    value: formatJalaliDate(_startDate),
+                    onTap: () async {
+                      final result = await pickJalaliDate(initialDate: _startDate);
+                      if (result != null) {
+                        setState(() => _startDate = result);
+                      }
+                    },
+                    placeholder: 'انتخاب تاریخ',
+                    icon: Icons.event,
+                  ),
+                  const SizedBox(height: 16),
+                  _selectionField(
+                    label: 'تاریخ پایان',
+                    value: formatJalaliDate(_endDate),
+                    onTap: () async {
+                      final result = await pickJalaliDate(initialDate: _endDate);
+                      if (result != null) {
+                        setState(() => _endDate = result);
+                      }
+                    },
+                    placeholder: 'انتخاب تاریخ',
+                    icon: Icons.event,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.done),
+                      label: const Text('ثبت ایجاد گمانه'),
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() {
+    if (_startDate == null || _endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تاریخ‌های شروع و پایان را انتخاب کنید.')),
+      );
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _toPersianDigits('ایجاد گمانه ${_nameController.text} ثبت شد.'),
+        ),
+      ),
+    );
+  }
+}
+
 class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
     with _FormFieldMixin {
   final _formKey = GlobalKey<FormState>();
@@ -2060,6 +3739,9 @@ class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
   final TextEditingController _fineUntilController = TextEditingController();
   final TextEditingController _fineRemainingController =
       TextEditingController();
+  final TextEditingController _tiresHealthController = TextEditingController();
+
+  ConditionStatus _tiresStatus = ConditionStatus.healthy;
 
   String? _receiver;
   String? _giver;
@@ -2074,13 +3756,6 @@ class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
     for (final item in _conditionItems) item: ConditionStatus.healthy,
   };
 
-  final Map<String, ConditionStatus> _tireStatus = {
-    for (final item in _tireItems) item: ConditionStatus.healthy,
-  };
-
-  late final Map<String, TextEditingController> _tireHealthControllers = {
-    for (final item in _tireItems) item: TextEditingController(),
-  };
 
   static const List<String> _personnelOptions = [
     'مهدی مقدم',
@@ -2166,13 +3841,6 @@ class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
     'دینام',
   ];
 
-  static const List<String> _tireItems = [
-    'لاستیک جلو راست',
-    'لاستیک جلو چپ',
-    'لاستیک عقب راست',
-    'لاستیک عقب چپ',
-  ];
-
   @override
   void dispose() {
     _letterNumberController.dispose();
@@ -2180,9 +3848,7 @@ class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
     _plateController.dispose();
     _fineUntilController.dispose();
     _fineRemainingController.dispose();
-    for (final controller in _tireHealthControllers.values) {
-      controller.dispose();
-    }
+    _tiresHealthController.dispose();
     super.dispose();
   }
 
@@ -2277,12 +3943,7 @@ class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
                   const SizedBox(height: 8),
                   _buildConditionCard(),
                   const SizedBox(height: 24),
-                  Text(
-                    'وضعیت لاستیک‌ها',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildTireCard(),
+                  _buildTiresSection(),
                   const SizedBox(height: 24),
                   _buildNumberField(
                     _fineUntilController,
@@ -2382,90 +4043,54 @@ class _VehicleDeliveryFormPageState extends State<VehicleDeliveryFormPage>
     );
   }
 
-  Widget _buildTireCard() {
+  Widget _buildTiresSection() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
-          children: _tireItems.map(_buildTireRow).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTireRow(String item) {
-    final controller = _tireHealthControllers[item]!;
-    final selectedStatus = _tireStatus[item] ?? ConditionStatus.healthy;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            item,
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: SegmentedButton<ConditionStatus>(
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: WidgetStateProperty.all<TextStyle>(
-                      const TextStyle(fontSize: 11),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'وضعیت کلی لاستیک‌ها',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<ConditionStatus>(
+              segments: ConditionStatus.values
+                  .map(
+                    (status) => ButtonSegment<ConditionStatus>(
+                      value: status,
+                      label: Text(status.label),
                     ),
-                  ),
-                  segments: ConditionStatus.values
-                      .map(
-                        (status) => ButtonSegment<ConditionStatus>(
-                          value: status,
-                          label: Text(
-                            status.label,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  selected: {selectedStatus},
-                  onSelectionChanged: (selection) {
-                    if (selection.isNotEmpty) {
-                      setState(() {
-                        _tireStatus[item] = selection.first;
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 110,
-                child: TextFormField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 12),
-                  decoration: _inputDecoration('درصد سلامت').copyWith(
-                    labelStyle: const TextStyle(fontSize: 11),
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'درصد سلامت الزامی است';
-                    }
-                    final parsed = int.tryParse(value);
-                    if (parsed == null || parsed < 0 || parsed > 100) {
-                      return 'عدد معتبر وارد کنید';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
+                  )
+                  .toList(),
+              selected: {_tiresStatus},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) {
+                  setState(() {
+                    _tiresStatus = selection.first;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _tiresHealthController,
+              keyboardType: TextInputType.number,
+              decoration: _inputDecoration('درصد سلامت لاستیک‌ها'),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'درصد سلامت الزامی است';
+                }
+                final parsed = int.tryParse(value);
+                if (parsed == null || parsed < 0 || parsed > 100) {
+                  return 'عدد معتبر بین ۰ تا ۱۰۰ وارد کنید';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2525,6 +4150,12 @@ extension ConditionStatusInfo on ConditionStatus {
         return 'ناسالم';
     }
   }
+}
+
+enum ConditionQuality { good, bad }
+
+extension ConditionQualityInfo on ConditionQuality {
+  String get label => this == ConditionQuality.good ? 'مناسب' : 'نامناسب';
 }
 
 class NotificationsPage extends StatelessWidget {
