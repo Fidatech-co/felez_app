@@ -1,0 +1,7 @@
+systemProp.http.proxyHost=192.168.56.248
+systemProp.http.proxyPort=8080
+systemProp.https.proxyHost=192.168.56.248
+systemProp.https.proxyPort=8080
+systemProp.http.nonProxyHosts=localhost|127.0.0.1|::1|10.*|192.168.*|172.16.*|172.17.*|172.18.*|172.19.*|172.2*|172.3*
+android.useAndroidX=true
+android.enableJetifier=true
